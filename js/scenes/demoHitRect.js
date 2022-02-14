@@ -46,7 +46,7 @@ import { controllerMatrix, buttonState } from "../render/core/controllerInput.js
          let matrixR  = controllerMatrix.right;
          let triggerR = buttonState.right[0].pressed;
 
-	 // ANIMATE THE TARGET
+	     // ANIMATE THE TARGET
 
          let target = model.child(0);
          target.identity()
@@ -63,12 +63,12 @@ import { controllerMatrix, buttonState } from "../render/core/controllerInput.js
          model.child(1).setMatrix(LM);
          model.child(2).setMatrix(RM);
 
-	 // CHECK TO SEE WHETHER EACH BEAM INTERSECTS WITH THE TARGET
+	     // CHECK TO SEE WHETHER EACH BEAM INTERSECTS WITH THE TARGET
 
          let hitL = cg.mHitRect(LM, target.getMatrix());
          let hitR = cg.mHitRect(RM, target.getMatrix());
 
-	 // CHANGE TARGET COLOR DEPENDING ON WHICH BEAM(S) HIT IT AND WHAT TRIGGERS ARE PRESSED
+	     // CHANGE TARGET COLOR DEPENDING ON WHICH BEAM(S) HIT IT AND WHAT TRIGGERS ARE PRESSED
 
          target.color(hitL && hitR ? triggerL || triggerR ? [0,0,1] : [.5,.5,1] :
                               hitL ? triggerL             ? [1,0,0] : [1,.5,.5] :
