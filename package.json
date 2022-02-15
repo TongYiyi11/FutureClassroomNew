@@ -7,6 +7,8 @@
     "test": "tests"
   },
   "dependencies": {
+    "three": "^0.137.5",
+    "three-js": "^79.0.0",
     "webxr-polyfill": "^2.0.3",
     "ws": "^7.4.1"
   },

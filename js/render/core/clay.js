@@ -2904,6 +2904,7 @@ function Node(_form) {
       this._parent   = null;
       this._texture  = '';
       this._precision = 1;
+      this._audio = null;
       m.identity();
       this._controlActions = {};
       this.resetControls();
@@ -2944,6 +2945,7 @@ function Node(_form) {
       child._melt   = null;
       child._parent = this;
       child._precision = null;
+      child._audio = null;
       return child;
    }
    this.remove = arg => { // ARG CAN BE EITHER AN INDEX OR A CHILD NODE
@@ -2982,6 +2984,7 @@ function Node(_form) {
                                 this._blend = tf === undefined ? false : tf; return this; }
    this.melt      = tf      => { this._melt  = tf === undefined ? true : tf; return this; }
    this.precision = value   => { this._precision = value; return this; }
+   this.setAudio  = src     => { this._audio = src;    return this; }
 
    window.controlAction = ch => {
       if (model._controlActions[ch])

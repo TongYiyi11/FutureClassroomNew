@@ -83,13 +83,17 @@ export let mHitRect = (A, B) => {
    return [F(1)/2, F(3)/2];
 }
 
+// given controller matrix, object matrix and controller position
+// check if the controller at given position hit the object
 export let mHitBox = (A, B) => {
    let L = [[0,0,1,1],[0,0,-1,1],[1,0,0,1],[-1,0,0,1],[0,1,0,1],[0,-1,0,1]];
    let M = mTranspose(mMultiply(mInverse(B), A));
-   for (let i = 0 ; i < L.length ; i++)
+   for (let i = 0 ; i < L.length ; i++){
       L[i] = mTransform(M, L[i]);
+   }
+   // let F = i => cross(L[i].slice(0, 3), p) + L[i][3];
    for(let i = 0; i < L.length; i++){
-      if(L[i][3] < -0.1){    // 0.1 for tolerance
+      if(L[i][3] < -0.5){
          return false;
       }
    }

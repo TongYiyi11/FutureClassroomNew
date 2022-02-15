@@ -1,43 +1,40 @@
+import * as THREE from '../../node_modules/three/build/three.module.js';
 import * as cg from "../render/core/cg.js";
 import { controllerMatrix, buttonState } from "../render/core/controllerInput.js";
-import {scale} from "../render/core/cg.js";
+import PositionalAudioPolyphonic from "../third-party/PositionalAudioPolyphonic.js";
 
 let objNum = 0;        // number of objects
 let target = null;     // target obj to be transformed
 let targetBox = null;  // target box
 let prevPosR = null;   // previous position of right controller
-let prevRotR = null;   // previous rotation matrix of right controller
 let movMode = false;   // translation mode
 let rotMode = false;   // rotation mode
-let rotRad = Math.PI / 12;  // rotation angle
 let isPlay = false;
 let stickL = null;
 let stickR = null;
+let audioLoader = null;
+let listener = null;
 
 const IDENTITY = [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1];
 
 export const init = async model => {
-    model.control('p', 'play', () => isPlay = ! isPlay);
+    model.control('p', 'play', () => {
+        if(isPlay){
+            model.remove(stickL);
+            model.remove(stickR);
+        }
+        isPlay = !isPlay
+    });
     model.setTable(false);
 
-    // create objects
-    // let cube = model.add().move(0, 1.5, 0);
-    // cube.add('cube').scale(0.2).texture('media/textures/brick.png');
-    // cube.add('tubeY').move(0, 0.3, 0).scale(0.2);
-
-    // let joint = model.add();
-    //
-    // let cross1T = joint.add().move(0, 0.2, 0);
-    // let cross1R = cross1T.add();
-    // cross1R.add('tubeX').scale(0.3, 0.1, 0.1);
-    //
-    // let cross2T = joint.add().move(0, 0.2, 0);
-    // let cross2R = cross2T.add().aimY([-1, 1, 0]);
-    // cross2R.add('tubeY').scale(0.1, 0.3, 0.1).texture('media/textures/brick.png');
+    audioLoader = new THREE.AudioLoader();
+    listener = new THREE.AudioListener();
+    // sound = new PositionalAudioPolyphonic(listener, 1);
+    // audioLoader.load('media/sound/drums.ogg', buffer => sound.setBuffer(buffer));
 
     // Stands
     for(let i = 0; i < 4; i++){
-        let stand = model.add().move(i, 0, 0);
+        let stand = model.add().move(i, 0, 0.5);
 
         // vertical stand
         let ylen = 0.5;
@@ -78,17 +75,22 @@ export const init = async model => {
 
     // Cymbals
     for(let i = 0; i < 3; i++){
-        let cymbalT = model.add().move(i + 1, 0.01, -0.8);
+        let cymbalT = model.add().move(i + 1, 0.01, 0);
         let cymbalR = cymbalT.add();
-        cymbalR.add('tubeY').scale(0.3, .005, 0.3).texture('media/textures/gold_metal.png');
+        cymbalR.add('tubeY').scale(0.3, .005, 0.3)
+            .texture('media/textures/gold_metal.png')
+            .setAudio(loadSound('media/sound/drums/cymbal_sound.ogg'));
     }
 
     // Bass Drum
-    let bassDrum = model.add().move(0, 0.4, -1);
+    let bassDrum = model.add().move(1, 0.4, -1.5);
     // drum
     let drumT = bassDrum.add();
     let drumR = drumT.add();
-    drumR.add('tubeZ').scale(0.4, 0.4, 0.13).texture('media/textures/drum.png');
+    drumR.add('tubeZ').scale(0.4, 0.4, 0.13)
+        .texture('media/textures/texture0.png')
+        .setAudio(loadSound('media/sound/drums/bass_drum.ogg'));
+
     // connect 1
     let cn1T = bassDrum.add().move(0, 0.5, 0);
     let cn1R = cn1T.add();
@@ -114,16 +116,24 @@ export const init = async model => {
     for(let i = 0; i < 4; i++){
         let r = 0.2;
         let h = 0.25;
+        let snd = 'media/sound/drums/tribal_drum.ogg';
+        let txt = 'media/textures/texture1.png';
         if(i == 0){
             r = 0.25;
             h = 0.4;
+            snd = 'media/sound/drums/dry_drum.ogg';
+            txt = 'media/textures/texture3.png';
         }
         if(i == 3){
             h = 0.1;
+            snd = 'media/sound/drums/soft_drum.ogg';
+            txt= 'media/textures/texture2.png';
         }
-        let tomT = model.add().move(i, r, 0.5);
+        let tomT = model.add().move(i, r, -0.5);
         let tomR = tomT.add();
-        tomR.add('tubeY').scale(r, h, r).texture('media/textures/drum.png');
+        tomR.add('tubeY').scale(r, h, r)
+            .texture(txt)
+            .setAudio(loadSound(snd));
     }
 
     objNum = model._children.length;
@@ -138,7 +148,6 @@ export const display = model => {
         let matrixR  = controllerMatrix.right;
         let rightSqueeze  = buttonState.right[0].pressed;   // squeeze in WebXR! for move
         let rightSelect = buttonState.right[3].pressed;     // select in WebXR! for rotation
-        let rotAim = true;   // TODO: rotation type
 
         // calibrate the controller matrix
         let LM = cg.mMultiply(matrixL, cg.mTranslate( .006,0,0));
@@ -150,7 +159,7 @@ export const display = model => {
 
             // find the target obj to be moved
             if(target == null){
-                target = intersectObj(model, IDENTITY, RM);
+                target = intersectObj(model, IDENTITY, RM, [0, 0, 0]);
                 targetBox = findBox(target);
             }
 
@@ -180,75 +189,54 @@ export const display = model => {
             rotMode = true;
 
             // find the target obj to be rotated
-            target = intersectObj(model, IDENTITY, RM);
+            target = intersectObj(model, IDENTITY, RM, [0, 0, 0]);
 
             // rotation
             if(target != null){
                 console.log('hit');
                 targetBox = findBox(target);
-                if(prevRotR == null){
-                    prevRotR = RM;
-                }
-                let curRotR = RM;
-                if(rotAim){
-                    let prevRotM = cg.mAimY(prevRotR.slice(4, 7));
-                    let curRotM = cg.mAimY(curRotR.slice(4, 7));
-                    let transM = cg.mMultiply(curRotM, cg.mInverse(prevRotM));
-                    rotateObj(targetBox, transM, rotAim);
-                    //targetBox.setMatrix(RM);
-                }else{
-                    let rotAxis = 0;  // 0: x, 1: y, 2: z
-                    let minRad = 1000;
-                    let maxRad = 0;
-                    for(let i = 0; i < 3; i++){
-                        let prevVec = prevRotR.slice(i * 4, i * 4 + 3);
-                        let curVec = curRotR.slice(i * 4, i * 4 + 3);
-                        let dotP = cg.dot(prevVec, curVec);
-                        let rad = Math.acos(dotP);
-                        if(rad < minRad){
-                            minRad = rad;
-                            rotAxis = i;
-                        }
-                        maxRad = Math.max(maxRad, rad);
-                    }
-                    // rotate only if rotation angle is greater than 3 degrees
-                    if(maxRad / Math.PI * 180 > 3){
-                        let rotMat = [];
-                        if(rotAxis == 0){
-                            rotMat = cg.mRotateX(rotRad);
-                        }else if(rotAxis == 1){
-                            rotMat = cg.mRotateY(rotRad);
-                        }else if(rotAxis == 2){
-                            rotMat = cg.mRotateZ(rotRad);
-                        }
-                        console.log(rotMat[0]);
-                        rotateObj(targetBox, rotMat, rotAim);
-                    }
-                }
-
-                prevRotR = curRotR;
+                let transMat = cg.mTranslate([0,0,-0.3]);
+                targetBox.setMatrix(cg.mMultiply(RM, transMat));
             }
-
         }else if(rotMode){
             // reset
             rotMode = false;
             target = null;
             targetBox = null;
-            prevRotR = null;
         }
 
-        // TODO: play drum
+        // play drum
         if(isPlay){
+            let stickLen = 0.4;
+            // set stick position
             if(stickL == null){
                 stickL = model.add();
-                stickL.add('tubeZ').move(0,0,-0.3).scale(.014,.014,.4).texture('media/textures/wood.png');
+                stickL.add('tubeZ').move(0,0,-0.3).scale(.014,.014,stickLen).texture('media/textures/wood.png');
             }
             if(stickR == null){
                 stickR = model.add();
-                stickR.add('tubeZ').move(0,0,-0.3).scale(.014,.014,.4).texture('media/textures/wood.png');
+                stickR.add('tubeZ').move(0,0,-0.3).scale(.014,.014,stickLen).texture('media/textures/wood.png');
             }
             stickL.setMatrix(LM);
             stickR.setMatrix(RM);
+
+            // check intersection
+            let transMat = cg.mMultiply(cg.mTranslate([0,0,-0.4]), stickR.child(0).getMatrix());
+            let hitObjR = intersectObj(model, IDENTITY, cg.mMultiply(RM, transMat));
+            let hitObjL = intersectObj(model, IDENTITY, cg.mMultiply(LM, transMat));
+            if(hitObjR != null){
+                console.log('hit right');
+                // play sound
+                if(hitObjR._audio != null){
+                    hitObjR._audio.play();
+                }
+            }
+            if(hitObjL != null){
+                console.log('hit left');
+                if(hitObjL._audio != null){
+                    hitObjL._audio.play();
+                }
+            }
         }
 
     });
@@ -256,14 +244,14 @@ export const display = model => {
 
 
 // traverse the tree using dfs and detect intersection
-// input: transformation matrix of the object and controller
+// input: transformation matrix of the object and controller, position of the controller
 // output: the intersected object
 let intersectObj = (root, TM, CM) => {
     TM = cg.mMultiply(TM, root.getMatrix());
     // leaf nodes
     if(root._children.length == 0){
         let hit = cg.mHitBox(CM, TM);
-        if(hit){
+        if(hit && root._parent != stickL && root._parent != stickR){
             return root;
         }else{
             return null;
@@ -289,29 +277,10 @@ let findBox = node => {
     }
 }
 
-// TODO: something wrong!
-// rotate all objects that are sub-child of the node
-let rotateObj = (node, rotMat, rotAim) => {
-    if(node == null) return;
-    let len = node._children.length;
-
-    // leaf nodes
-    if(len == 0){
-        if(!rotAim){
-            let transMat = node.getMatrix();
-            node.setMatrix(cg.mMultiply(rotMat, transMat));
-        }else{
-            let transMat = node.getMatrix();
-            node.setMatrix(cg.mMultiply(rotMat, transMat));
-        }
-        //console.log('R');
-        return;
-    }
-
-    // non-leaf nodes
-    for(let i = 0; i < len; i++){
-        rotateObj(node.child(i), rotMat);
-    }
+let loadSound = src => {
+    let sound = new PositionalAudioPolyphonic(listener, 1);
+    audioLoader.load(src, buffer => sound.setBuffer(buffer));
+    return sound;
 }
 
 
