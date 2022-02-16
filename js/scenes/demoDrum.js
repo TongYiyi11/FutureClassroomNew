@@ -29,8 +29,6 @@ export const init = async model => {
 
     audioLoader = new THREE.AudioLoader();
     listener = new THREE.AudioListener();
-    // sound = new PositionalAudioPolyphonic(listener, 1);
-    // audioLoader.load('media/sound/drums.ogg', buffer => sound.setBuffer(buffer));
 
     // Stands
     for(let i = 0; i < 4; i++){
@@ -75,7 +73,7 @@ export const init = async model => {
 
     // Cymbals
     for(let i = 0; i < 3; i++){
-        let cymbalT = model.add().move(i + 1, 0.01, 0);
+        let cymbalT = model.add().move(i + 1, 0.05, 0);
         let cymbalR = cymbalT.add();
         cymbalR.add('tubeY').scale(0.3, .005, 0.3)
             .texture('media/textures/gold_metal.png')
@@ -146,12 +144,17 @@ export const display = model => {
         // GET THE CURRENT MATRIX AND TRIGGER INFO FOR BOTH CONTROLLERS
         let matrixL  = controllerMatrix.left;
         let matrixR  = controllerMatrix.right;
-        let rightSqueeze  = buttonState.right[0].pressed;   // squeeze in WebXR! for move
-        let rightSelect = buttonState.right[3].pressed;     // select in WebXR! for rotation
+        let rightSqueeze  = buttonState.right[0].pressed;   // squeeze in WebXR! (Trigger in VR) for move
+        let rightSelect = buttonState.right[1].pressed;     // squeeze in VR! for rotation
+        //let rightSelect = buttonState.right[3].pressed;   // select in WebXR! for rotation
+        let rightJoyTouch = buttonState.right[3].touched;   // change to play mode in VR
 
         // calibrate the controller matrix
         let LM = cg.mMultiply(matrixL, cg.mTranslate( .006,0,0));
         let RM = cg.mMultiply(matrixR, cg.mTranslate(-.001,0,0));
+
+        // check VR mode
+        if(LM.length > 0) isPlay = rightJoyTouch;
 
         // move object
         if(rightSqueeze){
@@ -195,7 +198,7 @@ export const display = model => {
             if(target != null){
                 console.log('hit');
                 targetBox = findBox(target);
-                let transMat = cg.mTranslate([0,0,-0.3]);
+                let transMat = cg.mTranslate([0,0,-0.1]);
                 targetBox.setMatrix(cg.mMultiply(RM, transMat));
             }
         }else if(rotMode){
@@ -210,6 +213,7 @@ export const display = model => {
             let stickLen = 0.4;
             // set stick position
             if(stickL == null){
+                console.log('stickL on');
                 stickL = model.add();
                 stickL.add('tubeZ').move(0,0,-0.3).scale(.014,.014,stickLen).texture('media/textures/wood.png');
             }
@@ -221,7 +225,7 @@ export const display = model => {
             stickR.setMatrix(RM);
 
             // check intersection
-            let transMat = cg.mMultiply(cg.mTranslate([0,0,-0.4]), stickR.child(0).getMatrix());
+            let transMat = cg.mMultiply(cg.mTranslate([0,0,-0.5]), stickR.child(0).getMatrix());
             let hitObjR = intersectObj(model, IDENTITY, cg.mMultiply(RM, transMat));
             let hitObjL = intersectObj(model, IDENTITY, cg.mMultiply(LM, transMat));
             if(hitObjR != null){
@@ -236,6 +240,13 @@ export const display = model => {
                 if(hitObjL._audio != null){
                     hitObjL._audio.play();
                 }
+            }
+        }else{
+            if(stickR != null){
+                model.remove(stickR);
+                model.remove(stickL);
+                stickL = null;
+                stickR = null;
             }
         }
 

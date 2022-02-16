@@ -93,7 +93,11 @@ export let mHitBox = (A, B) => {
    }
    // let F = i => cross(L[i].slice(0, 3), p) + L[i][3];
    for(let i = 0; i < L.length; i++){
-      if(L[i][3] < -0.5){
+      let tolerance = -0.1;
+      if(i == 1){
+         tolerance = -0.2;
+      }
+      if(L[i][3] < tolerance){
          return false;
       }
    }
